@@ -1,9 +1,19 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 import database
 
 database.create_table()
 
+categories = [
+    "Food",
+    "Transport",
+    "Shopping",
+    "Bills",
+    "Entertainment",
+    "Healthcare",
+    "Education",
+    "Other"
+]
 total_expenses = 0.0
 expenses = []
 
@@ -18,7 +28,7 @@ def get_expense():
     for expense in expenses:
         expense_list.insert(
             tk.END,
-            f"{expense[0]}. {expense[1]} - RM {expense[2]:.2f}"
+            f"{expense[0]}. {expense[1]} - RM {expense[2]:.2f} [{expense[3]}]"
         )
 
         total_expenses += expense[2]
@@ -28,8 +38,9 @@ def get_expense():
 def add_expense():
     global total_expenses
     expense_name = expenseentry.get().strip() #strip whitespace from the input
-    expense_amount = amountentry.get()
-
+    expense_amount = amountentry.get().strip() 
+    expense_category = category_dropdown.get()
+    
     if expense_name == "" or expense_amount == "":
         messagebox.showerror("Invalid Input", "Please fill in all fields.")
         return
@@ -41,14 +52,9 @@ def add_expense():
     if expense_amount <= 0:
         messagebox.showerror("Invalid Input", "Amount must be greater than zero.")
         return
-    
-    expense = {
-        "name": expense_name,
-        "amount": expense_amount
-    }
 
-    database.add_expense(expense_name, expense_amount)
-    
+    database.add_expense(expense_name, expense_amount, expense_category)
+
     # Refresh the expense list after adding a new expense
     get_expense() 
     
@@ -74,9 +80,6 @@ def delete_expense():
         database.delete_expense(expense_id)
     get_expense() 
     
-    total_label.config(
-        text=f"Total Expenses: RM {total_expenses:.2f}"
-    )
     messagebox.showinfo(
         "Deleted Expenses",
         f"You have deleted {len(selected)} expense(s)."
@@ -96,7 +99,7 @@ def edit_expense():
 
     edit_window = tk.Toplevel(root) 
     edit_window.title("Edit Expense")
-    edit_window.geometry("400x200")
+    edit_window.geometry("600x600")
     edit_window.resizable(False, False)
 
     edit_expense_label = tk.Label(
@@ -123,6 +126,14 @@ def edit_expense():
     )
     edit_amount_entry.insert(0, str(expense[2]))
 
+    edit_category_dropdown = ttk.Combobox(
+        edit_window,
+        values=categories,
+        state="readonly",
+        font=("Arial", 14)
+    )
+    edit_category_dropdown.set(expense[3]) 
+
     save_button = tk.Button(
         edit_window,
         text="Save Changes",
@@ -130,6 +141,7 @@ def edit_expense():
         command=lambda: save_changes(
             edit_expense_entry,
             edit_amount_entry,
+            edit_category_dropdown,
             index,
             edit_window
         ) #lambda delays the execution of save_changes until the button is clicked
@@ -139,15 +151,15 @@ def edit_expense():
     edit_expense_entry.pack(pady=5) 
     edit_amount_label.pack(pady=5)
     edit_amount_entry.pack(pady=5)
-    save_button.pack(pady=10)
+    edit_category_dropdown.pack(pady=5) 
+    save_button.pack(pady=10)    
     
-    
-    
-def save_changes(edit_expense_entry, edit_amount_entry, index, edit_window):
+def save_changes(edit_expense_entry, edit_amount_entry, edit_category_dropdown, index, edit_window):
     edited_expense_name = edit_expense_entry.get().strip()
     edited_amount = edit_amount_entry.get().strip()
+    edited_category = edit_category_dropdown.get()
 
-    if not edited_expense_name or not edited_amount:
+    if not edited_expense_name or not edited_amount or not edited_category:
         messagebox.showerror("Invalid Input", "Please fill in all fields.")
         return
 
@@ -168,7 +180,8 @@ def save_changes(edit_expense_entry, edit_amount_entry, index, edit_window):
     database.update_expense(
         expense_id,
         edited_expense_name,
-        edited_amount
+        edited_amount,
+        edited_category
     )
 
     # Refresh the Listbox and total
@@ -181,18 +194,52 @@ def save_changes(edit_expense_entry, edit_amount_entry, index, edit_window):
         f"Expense '{edited_expense_name}' has been updated successfully."
     )
 
+def show_category_summary():
+    category_totals = database.get_category_totals()
+
+    summary_window = tk.Toplevel(root)
+    summary_window.title("Category Summary")
+    summary_window.geometry("400x500")
+    summary_window.resizable(False, False)
+
+    summary_label = tk.Label(
+        summary_window,
+        text="Category Summary",
+        font=("Arial", 16, "bold")
+    )
+    summary_label.pack(pady=10)
+
+    for category in category_totals:
+        category_name = category[0]
+        total_amount = category[1]
+        category_label = tk.Label(
+            summary_window,
+            text=f"{category_name}: RM {total_amount:.2f}",
+            font=("Arial", 14)
+        )
+        category_label.pack(pady=5)
+    
+    overall_total = sum(category[1] for category in category_totals)
+
+    overall_label = tk.Label(
+        summary_window,
+        text=f"Overall Total: RM {overall_total:.2f}",
+        font=("Arial", 14, "bold")
+    )
+    overall_label.pack(pady=15)
+    
 # Create the main application window
 
 root = tk.Tk()
 input_frame = tk.Frame(root)
-input_frame.pack(pady=10)
 
 control_frame = tk.Frame(root)
-control_frame.pack(pady=10)
+
+expense_frame = tk.Frame(root)
 
 # Configure the window
 root.title("My Expense Manager")
-root.geometry("900x600")
+root.geometry("1100x600")
 root.resizable(True, True)
 
 # Create a heading
@@ -229,15 +276,40 @@ amountentry = tk.Entry(
     font=("Arial", 14),
     width=15
 )
+#Category label and dropdown
+categorylabel = tk.Label(
+    input_frame,
+    text="Category:",
+    font=("Arial", 14)
+)
+category_dropdown = ttk.Combobox(
+    input_frame,
+    values=categories,
+    font=("Arial", 14),
+    width=15,
+    state="readonly"
+)
+# Set default value for the category dropdown
+category_dropdown.set("Food")
+
 
 # Create an expense list
-expense_list = tk.Listbox(
-    root,
-    font=("Arial", 14),
-    width=50,
-    height=10,
-    selectmode=tk.EXTENDED
+expense_scrollbar = ttk.Scrollbar(
+    expense_frame,
+    orient="vertical"
 )
+
+expense_list = tk.Listbox(
+    expense_frame,
+    font=("Arial", 14),
+    selectmode=tk.EXTENDED,
+    width=40,
+    height=10,
+    yscrollcommand=expense_scrollbar.set
+)
+
+expense_scrollbar.config(command=expense_list.yview)
+
 total_label = tk.Label(
     root,
     text="Total Expenses: RM 0.00",
@@ -268,23 +340,44 @@ editbutton = tk.Button(
     font=("Arial", 14),
     command=edit_expense
 )
+show_summary_button = tk.Button(
+    control_frame,
+    text="Show Category Summary",
+    font=("Arial", 14),
+    command=show_category_summary
+)
 
+# Heading and subheading
 heading.pack(pady=20)
 subheading.pack(pady=10)
-#input_frame
+
+# Input frame
+input_frame.pack(pady=10)
+
 expenselabel.pack(side=tk.LEFT, padx=5)
 expenseentry.pack(side=tk.LEFT, padx=5)
 amountlabel.pack(side=tk.LEFT, padx=5)
 amountentry.pack(side=tk.LEFT, padx=5)
+categorylabel.pack(side=tk.LEFT, padx=5)
+category_dropdown.pack(side=tk.LEFT, padx=5)
 
-expense_list.pack(pady=15)
-total_label.pack(pady=10)
+# Control frame
+control_frame.pack(pady=10)
 
-#control_frame
 addbutton.pack(side=tk.LEFT, padx=5)
 selectbutton.pack(side=tk.LEFT, padx=5)
 deletebutton.pack(side=tk.LEFT, padx=5)
 editbutton.pack(side=tk.LEFT, padx=5)
+show_summary_button.pack(side=tk.LEFT, padx=5)
+
+# Expense list frame
+expense_frame.pack(pady=10)
+
+expense_list.pack(side=tk.LEFT)
+expense_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+# Total expenses
+total_label.pack(pady=10)
 
 # Start the application 
 get_expense()

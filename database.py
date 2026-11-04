@@ -12,20 +12,21 @@ def create_table():
         CREATE TABLE IF NOT EXISTS expenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            amount REAL NOT NULL
+            amount REAL NOT NULL,
+            category TEXT NOT NULL
         )
     """)
 
     conn.commit()
     conn.close()
     
-def add_expense(name, amount):
+def add_expense(name, amount, category):
     conn = create_connection()
     cursor = conn.cursor()
 
     cursor.execute(
-        "INSERT INTO expenses (name, amount) VALUES (?, ?)",
-        (name, amount)
+        "INSERT INTO expenses (name, amount, category) VALUES (?, ?, ?)",
+        (name, amount, category)
     )
 
     conn.commit()
@@ -43,13 +44,13 @@ def get_expenses():
 
     return expenses
 
-def update_expense(expense_id, name, amount):
+def update_expense(expense_id, name, amount, category):
     conn = create_connection()
     cursor = conn.cursor()
 
     cursor.execute(
-        "UPDATE expenses SET name = ?, amount = ? WHERE id = ?",
-        (name, amount, expense_id)
+        "UPDATE expenses SET name = ?, amount = ?, category = ? WHERE id = ?",
+        (name, amount, category, expense_id)
     )
 
     conn.commit()
@@ -66,3 +67,17 @@ def delete_expense(expense_id):
 
     conn.commit()
     conn.close()
+    
+def get_category_totals():
+    conn = create_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT category, SUM(amount) FROM expenses GROUP BY category"
+    )
+
+    category_totals = cursor.fetchall()
+    
+    conn.close()
+
+    return category_totals

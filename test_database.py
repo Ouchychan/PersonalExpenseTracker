@@ -1,8 +1,6 @@
 import database
 
-database.delete_expense(1)
+category_totals = database.get_category_totals()
 
-saved_expenses = database.get_expenses()
-
-for expense in saved_expenses:
-    print(expense)
+for category in category_totals:
+    print(category[0], category[1])

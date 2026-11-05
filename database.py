@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import datetime, timezone
 
 def create_connection():
     conn = sqlite3.connect("expenses.db")
@@ -13,7 +14,8 @@ def create_table():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             amount REAL NOT NULL,
-            category TEXT NOT NULL
+            category TEXT NOT NULL DEFAULT 'Uncategorized',
+            timestamp TEXT
         )
     """)
 
@@ -24,9 +26,11 @@ def add_expense(name, amount, category):
     conn = create_connection()
     cursor = conn.cursor()
 
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    
     cursor.execute(
-        "INSERT INTO expenses (name, amount, category) VALUES (?, ?, ?)",
-        (name, amount, category)
+        "INSERT INTO expenses (name, amount, category, timestamp) VALUES (?, ?, ?, ?)",
+        (name, amount, category, timestamp)
     )
 
     conn.commit()
@@ -81,3 +85,52 @@ def get_category_totals():
     conn.close()
 
     return category_totals
+
+def search_and_filter_expenses(keyword, category):
+    conn = create_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT * FROM expenses
+        WHERE name LIKE ?
+        AND (category = ? OR ? = 'All Categories')
+        ORDER BY timestamp DESC
+        """, (f"%{keyword}%", category, category)
+    )
+
+    expenses = cursor.fetchall()
+    conn.close()
+
+    return expenses
+
+def filter_expenses_by_date(start_date, end_date):
+    conn = create_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT * FROM expenses
+        WHERE DATE(timestamp) BETWEEN ? AND ?
+        ORDER BY timestamp DESC
+    """, (start_date, end_date))
+
+    expenses = cursor.fetchall()
+    conn.close()
+
+    return expenses
+
+def filter_expenses(keyword, category, start_date, end_date):
+    conn = create_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT * FROM expenses
+        WHERE name LIKE ?
+        AND (category = ? OR ? = 'All Categories')
+        AND DATE(timestamp) BETWEEN ? AND ?
+        ORDER BY timestamp DESC
+    """, (f"%{keyword}%", category, category, start_date, end_date))
+
+    expenses = cursor.fetchall()
+    conn.close()
+
+    return expenses

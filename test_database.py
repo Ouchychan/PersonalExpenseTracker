@@ -1,6 +1,11 @@
 import database
 
-category_totals = database.get_category_totals()
+results = database.filter_expenses(
+    "",
+    "All Categories",
+    "2026-11-01",
+    "2026-11-05"
+)
 
-for category in category_totals:
-    print(category[0], category[1])
+for expense in results:
+    print(expense)
